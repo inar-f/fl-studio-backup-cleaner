@@ -1,7 +1,51 @@
+# Python virtual environment
 .venv/
+venv/
+env/
+
+# Python cache / bytecode
 __pycache__/
 *.pyc
-test_root/
+*.py[cod]
+*$py.class
 
+# Python package/build metadata
+*.egg-info/
+.eggs/
+build/
+dist/
+*.whl
+
+# PySide6 / Nuitka deployment
+*.dist/
+*.build/
+*.onefile-build/
+pysidedeploy.spec
+pyside_app_demo.exe
+
+# Ignore compiled executables in source repo
+*.exe
+
+# Logs
+logs/
 src/logs/
 *.log
+
+# Local testing folders
+test_root/
+
+# IDE/editor files
+.vscode/
+.idea/
+
+# OS junk
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Temporary files
+*.tmp
+*.temp
+*.bak
+*.swp
+*.swo
