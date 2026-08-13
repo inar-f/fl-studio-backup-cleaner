@@ -1,4 +1,4 @@
-![FL Backup Cleaner screenshot](assets/screenshot.png)
+![FL Backup Cleaner screenshot](assets/FLBUCleaner_screenshot.png)
 
 # FL Backup Cleaner
 A small desktop app built with PySide6. It:
@@ -10,5 +10,9 @@ A small desktop app built with PySide6. It:
 1. Create and activate the virtual environment
 2. pip install -r requirements.txt
 3. python -m flcleaner.app
+
+## ! Working on packaging into an executable
+Using pyside6's deployment in standalone mode to avoid antivirus triggers.
+Working on Inno setup, should be ready soon.
 
 The app shows a window with a folder picker, a preview table, and a button to run the cleanup.
