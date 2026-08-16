@@ -1,5 +1,6 @@
 from pathlib import Path
 from typing import List, Dict
+from datetime import datetime
 import os
 
 def is_backup_name(name: str) -> bool:
@@ -22,10 +23,18 @@ def scan_for_backups(root: Path) -> List[Dict]:
         if target is None:
             continue
 
+        # Table scan display details
         backup_path = Path(dirpath) / target
+        if not any(backup_path.iterdir()): continue
+
+        display_path = backup_path.relative_to(root.parent)
         file_count, byte_size = count_files_and_size(backup_path)
+        modified_time = datetime.fromtimestamp(backup_path.stat().st_mtime)
+
         results.append({
             "backup_path": str(backup_path),
+            "display_path": str(display_path),
+            "modified_time": modified_time,
             "file_count": file_count,
             "byte_size": byte_size,
         })

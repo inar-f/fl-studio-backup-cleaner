@@ -3,15 +3,17 @@ from PySide6 import QtWidgets
 from PySide6.QtGui import QIcon
 from importlib.resources import files
 
+from . import resources_rc
 from .widgets.main_window import MainWindow
 from .utils.logging_setup import setup_logger
 
 def main():
     app = QtWidgets.QApplication(sys.argv)
     
-    icon_path = files("flcleaner").joinpath("ui/icons/app.ico")
-    app.setWindowIcon(QIcon(str(icon_path)))
     
+    icon_path = files("flcleaner").joinpath("ui/icons/app.ico")
+    app.setWindowIcon(QIcon(":/ui/icons/app.svg"))
+
     logger = setup_logger()
     win = MainWindow(logger)
     win.show()
