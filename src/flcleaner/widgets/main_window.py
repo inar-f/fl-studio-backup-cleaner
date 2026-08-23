@@ -7,6 +7,16 @@ from importlib.resources import files
 from ..core.scan import scan_for_backups, format_bytes
 from ..core.clean import clean_backup_folder
 
+class SortableTableItem(QtWidgets.QTableWidgetItem):
+    def __lt__(self, other):
+        self_data = self.data(Qt.UserRole)
+        other_data = other.data(Qt.UserRole)
+
+        if self_data is not None and other_data is not None:
+            return self_data < other_data
+
+        return super().__lt__(other)
+
 class MainWindow(QtWidgets.QMainWindow):
     def __init__(self, logger, parent=None):
         super().__init__(parent)
@@ -36,6 +46,7 @@ class MainWindow(QtWidgets.QMainWindow):
         
         type_label = QtWidgets.QLabel("Backup types to clean:")
 
+        # Overwritten and Autosaved checkboxes
         self.overwritten_checkbox = QtWidgets.QCheckBox("Overwritten")
         self.overwritten_checkbox.setChecked(True)
         self.overwritten_checkbox.setToolTip(
@@ -55,10 +66,15 @@ class MainWindow(QtWidgets.QMainWindow):
         type_row.addWidget(self.autosaved_checkbox)
         type_row.addStretch()
 
-        # Table
+
+        # Table results display
         self.table = QtWidgets.QTableWidget(0, 5)
-        self.table.setHorizontalHeaderLabels(["Clean", "Backup folder", "Date", "Files", "Size"])
-        self.table.horizontalHeader().setSectionResizeMode(0, QtWidgets.QHeaderView.ResizeToContents)
+        self.table.setSortingEnabled(True)
+
+        self.table.setHorizontalHeaderLabels([" ", "Backup folder", "Date", "Files", "Size"])
+        self.table.horizontalHeader().setSectionResizeMode(0, QtWidgets.QHeaderView.Fixed)
+        self.table.horizontalHeader().resizeSection(0, 50)
+
         self.table.horizontalHeader().setSectionResizeMode(1, QtWidgets.QHeaderView.Stretch)
         self.table.horizontalHeader().setSectionResizeMode(2, QtWidgets.QHeaderView.ResizeToContents)
         self.table.horizontalHeader().setSectionResizeMode(3, QtWidgets.QHeaderView.ResizeToContents)
@@ -116,32 +132,48 @@ class MainWindow(QtWidgets.QMainWindow):
         self.refresh_table()
 
     def populate_table(self, rows):
+        self.table.setSortingEnabled(False)
         self.table.setRowCount(0)
 
         for row in rows:
-            modified_text = row["modified_time"].strftime("%d %b %Y, %H:%M")
+            # check_item: Checkbox selection
+            checkbox = QtWidgets.QCheckBox()
+            checkbox.setChecked(True)
 
-            # Checkbox
-            check_item = QtWidgets.QTableWidgetItem()
-            check_item.setFlags(
-                Qt.ItemIsEnabled | Qt.ItemIsUserCheckable
-            )
-            check_item.setCheckState(Qt.Checked)
+            checkbox_container = QtWidgets.QWidget()
+            checkbox_layout = QtWidgets.QHBoxLayout(checkbox_container)
+
+            checkbox_layout.addWidget(checkbox)
+            checkbox_layout.setAlignment(Qt.AlignCenter)
+            checkbox_layout.setContentsMargins(0, 0, 0, 0)
+
+            # path_item: Relative diplay path and absolute path
+            path_item = QtWidgets.QTableWidgetItem(row["display_path"])
+            path_item.setData(Qt.UserRole, row["backup_path"])
+
+            # date_item: folder dates
+            modified_text = row["modified_time"].strftime("%d %b %Y, %H:%M")
+            date_item = SortableTableItem(modified_text)
+            date_item.setData(Qt.UserRole, row["modified_time"].timestamp())
+
+            # files_item: File count
+            files_item = SortableTableItem(str(row["file_count"]))
+            files_item.setData(Qt.UserRole, row["file_count"])
+
+            # size_item: Size
+            size_item = SortableTableItem(format_bytes(row["byte_size"]))
+            size_item.setData(Qt.UserRole, row["byte_size"])
 
             i = self.table.rowCount()
             self.table.insertRow(i)
 
-            # seperate relative diplay path and absolute path
-            path_item = QtWidgets.QTableWidgetItem(row["display_path"])
-            path_item.setData(Qt.UserRole, row["backup_path"])
-
-
-            self.table.setItem(i, 0, check_item)
+            self.table.setCellWidget(i, 0, checkbox_container)
             self.table.setItem(i, 1, path_item)
-            self.table.setItem(i, 2, QtWidgets.QTableWidgetItem(modified_text))
-            self.table.setItem(i, 3, QtWidgets.QTableWidgetItem(str(row["file_count"])))
-            self.table.setItem(i, 4, QtWidgets.QTableWidgetItem(format_bytes(row["byte_size"])))
-        self.table.sortItems(0, QtCore.Qt.AscendingOrder)
+            self.table.setItem(i, 2, date_item)
+            self.table.setItem(i, 3, files_item)
+            self.table.setItem(i, 4, size_item)
+
+        self.table.setSortingEnabled(True)
 
     def refresh_table(self):
         root = Path(self.path_edit.text().strip()).expanduser()
@@ -173,14 +205,15 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def on_run(self):
         count = self.table.rowCount()
-        if count == 0:
-            return
+        if count == 0: return
 
         # Check selected folders
         selected_count = 0
 
         for i in range(count):
-            if self.table.item(i, 0).checkState() == Qt.Checked:
+            container = self.table.cellWidget(i, 0)
+            checkbox = container.findChild(QtWidgets.QCheckBox)
+            if checkbox.isChecked():
                 selected_count += 1
 
         if selected_count == 0:
@@ -196,15 +229,15 @@ class MainWindow(QtWidgets.QMainWindow):
             "Confirm cleanup",
             f"Send the contents of {selected_count} selected backup folder(s) to the recycle bin?"
         )
-        if ans != QtWidgets.QMessageBox.Yes:
-            return
+        if ans != QtWidgets.QMessageBox.Yes: return
 
         removed = 0
         errors = 0
         for i in range(count):
-            check_item = self.table.item(i, 0)
+            container = self.table.cellWidget(i, 0)
+            checkbox = container.findChild(QtWidgets.QCheckBox)
 
-            if check_item.checkState() != Qt.Checked: continue
+            if not checkbox.isChecked(): continue
 
             # backup_path = self.table.item(i, 1).text()
             backup_path = self.table.item(i, 1).data(Qt.UserRole)
