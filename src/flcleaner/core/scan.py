@@ -3,10 +3,16 @@ from typing import List, Dict
 from datetime import datetime
 import os
 
+from .clean import is_backup_file
+
 def is_backup_name(name: str) -> bool:
     return name.lower() == "backup"
 
-def scan_for_backups(root: Path) -> List[Dict]:
+def scan_for_backups(
+        root: Path,
+        include_overwritten: bool,
+        include_autosaved: bool
+    ) -> List[Dict]:
     results: List[Dict] = []
     root = Path(root).expanduser().resolve()
     if not root.exists():
@@ -25,10 +31,25 @@ def scan_for_backups(root: Path) -> List[Dict]:
 
         # Table scan display details
         backup_path = Path(dirpath) / target
-        if not any(backup_path.iterdir()): continue
 
         display_path = backup_path.relative_to(root.parent)
-        file_count, byte_size = count_files_and_size(backup_path)
+
+        cleanable_files = [
+            entry
+            for entry in backup_path.iterdir()
+            if is_backup_file(
+                entry,
+                include_overwritten,
+                include_autosaved
+            )
+        ]
+
+        if not cleanable_files:
+            continue
+
+        file_count = len(cleanable_files)
+        byte_size = sum(file.stat().st_size for file in cleanable_files)
+
         modified_time = datetime.fromtimestamp(backup_path.stat().st_mtime)
 
         results.append({

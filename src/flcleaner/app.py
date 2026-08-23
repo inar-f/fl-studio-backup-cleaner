@@ -9,7 +9,15 @@ from .utils.logging_setup import setup_logger
 
 def main():
     app = QtWidgets.QApplication(sys.argv)
-    
+
+    # Tooltip bg change
+    app.setStyleSheet("""QToolTip {
+        background-color: #E4E4E4;
+        color: black;
+        border: 3px outset #2b2b2b;
+        padding: 6px;
+        }
+    """)
     
     icon_path = files("flcleaner").joinpath("ui/icons/app.ico")
     app.setWindowIcon(QIcon(":/ui/icons/app.svg"))

@@ -22,6 +22,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
         # Top controls
         path_row = QtWidgets.QHBoxLayout()
+
         self.path_edit = QtWidgets.QLineEdit()
         self.path_edit.setPlaceholderText("Choose the folder that contains your FL Studio project folders")
         browse_btn = QtWidgets.QPushButton("Browse")
@@ -29,6 +30,30 @@ class MainWindow(QtWidgets.QMainWindow):
         path_row.addWidget(self.path_edit, 1)
         path_row.addWidget(browse_btn)
         path_row.addWidget(scan_btn)
+
+        # Type controls
+        type_row = QtWidgets.QHBoxLayout()
+        
+        type_label = QtWidgets.QLabel("Backup types to clean:")
+
+        self.overwritten_checkbox = QtWidgets.QCheckBox("Overwritten")
+        self.overwritten_checkbox.setChecked(True)
+        self.overwritten_checkbox.setToolTip(
+            "Previous versions of your project saved before FL Studio overwrote them.\n\n"
+            "ℹ️ Overwritten files are useful if you want to recover a previous version of a project."
+        )
+
+        self.autosaved_checkbox = QtWidgets.QCheckBox("Autosaved")
+        self.autosaved_checkbox.setChecked(False)
+        self.autosaved_checkbox.setToolTip(
+            "Automatic recovery saves created by FL Studio while you work.\n\n"
+            "ℹ️ Autosaved files are useful if FL Studio crashes or you lose unsaved work."
+        )
+
+        type_row.addWidget(type_label)
+        type_row.addWidget(self.overwritten_checkbox)
+        type_row.addWidget(self.autosaved_checkbox)
+        type_row.addStretch()
 
         # Table
         self.table = QtWidgets.QTableWidget(0, 5)
@@ -54,6 +79,7 @@ class MainWindow(QtWidgets.QMainWindow):
         bottom_row.addWidget(self.run_btn)
 
         layout.addLayout(path_row)
+        layout.addLayout(type_row)
         layout.addWidget(self.table, 1)
         layout.addLayout(bottom_row)
 
@@ -64,6 +90,9 @@ class MainWindow(QtWidgets.QMainWindow):
         scan_btn.clicked.connect(self.on_scan)
         self.run_btn.clicked.connect(self.on_run)
         self.donate_btn.clicked.connect(self.on_donate)
+
+        self.overwritten_checkbox.stateChanged.connect(self.refresh_table)
+        self.autosaved_checkbox.stateChanged.connect(self.refresh_table)
 
     def on_browse(self):
         dlg = QtWidgets.QFileDialog(self, "Choose root folder")
@@ -77,15 +106,14 @@ class MainWindow(QtWidgets.QMainWindow):
     def on_scan(self):
         root = Path(self.path_edit.text().strip()).expanduser()
         if not root.exists():
-            QtWidgets.QMessageBox.warning(self, "Invalid path", "Folder does not exist")
+            QtWidgets.QMessageBox.warning(
+                self,
+                "Invalid path",
+                "Folder does not exist"
+            )
             return
         self.logger.info("scan start: %s", root)
-        data = scan_for_backups(root)
-        self.populate_table(data)
-        total_files = sum(d["file_count"] for d in data)
-        total_bytes = sum(d["byte_size"] for d in data)
-        self.status_label.setText(f"Found {len(data)} backup folders, {total_files} files, {format_bytes(total_bytes)} total")
-        self.run_btn.setEnabled(len(data) > 0)
+        self.refresh_table()
 
     def populate_table(self, rows):
         self.table.setRowCount(0)
@@ -117,13 +145,24 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def refresh_table(self):
         root = Path(self.path_edit.text().strip()).expanduser()
+        data = scan_for_backups(
+            root,
+            include_overwritten=self.overwritten_checkbox.isChecked(),
+            include_autosaved=self.autosaved_checkbox.isChecked()
+        )
 
-        data = scan_for_backups(root)
+        # Make sure either OW or AS checked
+        if (not self.overwritten_checkbox.isChecked()
+            and not self.autosaved_checkbox.isChecked()):
+            self.table.setRowCount(0)
+            self.status_label.setText("Select at least one backup type")
+            self.run_btn.setEnabled(False)
+            return
+
         self.populate_table(data)
 
         total_files = sum(d["file_count"] for d in data)
         total_bytes = sum(d["byte_size"] for d in data)
-
         self.status_label.setText(
             f"Found {len(data)} backup folders, "
             f"{total_files} files, "
@@ -152,7 +191,6 @@ class MainWindow(QtWidgets.QMainWindow):
             )
             return
 
-        
         ans = QtWidgets.QMessageBox.question(
             self,
             "Confirm cleanup",
@@ -165,20 +203,32 @@ class MainWindow(QtWidgets.QMainWindow):
         errors = 0
         for i in range(count):
             check_item = self.table.item(i, 0)
+
             if check_item.checkState() != Qt.Checked: continue
 
             # backup_path = self.table.item(i, 1).text()
             backup_path = self.table.item(i, 1).data(Qt.UserRole)
-            res = clean_backup_folder(Path(backup_path))
+            res = clean_backup_folder(
+                Path(backup_path),
+                include_overwritten=self.overwritten_checkbox.isChecked(),
+                include_autosaved=self.autosaved_checkbox.isChecked()
+            )
 
             removed += res["removed"]
             errors += res["errors"]
 
-            self.logger.info("cleaned %s removed=%s errors=%s", backup_path, res["removed"], res["errors"])
+            self.logger.info(
+                "cleaned %s removed=%s errors=%s",
+                backup_path,
+                res["removed"],
+                res["errors"]
+            )
 
         msg = f"Done. Removed items {removed}. Errors {errors}."
-        self.status_label.setText(msg)
-        QtWidgets.QMessageBox.information(self, "Cleanup complete", msg)
+
+        QtWidgets.QMessageBox.information(self,"Cleanup complete",msg)
+
+        self.refresh_table()
 
     def on_donate(self):
         kofi_link = "https://ko-fi.com/rainyyrays"
