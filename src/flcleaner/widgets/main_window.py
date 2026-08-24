@@ -131,6 +131,33 @@ class MainWindow(QtWidgets.QMainWindow):
         self.logger.info("scan start: %s", root)
         self.refresh_table()
 
+
+    def update_selected_summary(self):
+        selected_folders = 0
+        selected_files = 0
+        selected_bytes = 0
+
+        for i in range(self.table.rowCount()):
+            container = self.table.cellWidget(i, 0)
+            checkbox = container.findChild(QtWidgets.QCheckBox)
+
+            if not checkbox.isChecked():
+                continue
+
+            selected_folders += 1
+
+            files_item = self.table.item(i, 3)
+            size_item = self.table.item(i, 4)
+
+            selected_files += files_item.data(Qt.UserRole)
+            selected_bytes += size_item.data(Qt.UserRole)
+
+        self.status_label.setText(
+            f"Selected {selected_folders} backup folders, "
+            f"{selected_files} files, "
+            f"{format_bytes(selected_bytes)} total"
+        )
+        
     def populate_table(self, rows):
         self.table.setSortingEnabled(False)
         self.table.setRowCount(0)
@@ -139,6 +166,7 @@ class MainWindow(QtWidgets.QMainWindow):
             # check_item: Checkbox selection
             checkbox = QtWidgets.QCheckBox()
             checkbox.setChecked(True)
+            checkbox.stateChanged.connect(self.update_selected_summary)
 
             checkbox_container = QtWidgets.QWidget()
             checkbox_layout = QtWidgets.QHBoxLayout(checkbox_container)
@@ -172,6 +200,8 @@ class MainWindow(QtWidgets.QMainWindow):
             self.table.setItem(i, 2, date_item)
             self.table.setItem(i, 3, files_item)
             self.table.setItem(i, 4, size_item)
+
+            self.update_selected_summary()
 
         self.table.setSortingEnabled(True)
 
