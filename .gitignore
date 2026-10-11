@@ -1,4 +1,4 @@
-# Python virtual environment
+# Python virtual environments
 .venv/
 venv/
 env/
@@ -9,32 +9,34 @@ __pycache__/
 *.py[cod]
 *$py.class
 
-# Python package/build metadata
+# Python package / build metadata
 *.egg-info/
 .eggs/
 build/
 dist/
 *.whl
 
-# PySide6 / Nuitka deployment
+# PySide6 / Nuitka deployment output
 *.dist/
 *.build/
 *.onefile-build/
 pysidedeploy.spec
-pyside_app_demo.exe
 
-# Ignore compiled executables in source repo
+# Compiled executables
 *.exe
+
+# Inno Setup output
+Output/
 
 # Logs
 logs/
 src/logs/
 *.log
 
-# Local testing folders
+# Local testing
 test_root/
 
-# IDE/editor files
+# IDE / editor files
 .vscode/
 .idea/
 
